@@ -24,6 +24,18 @@
 
 #undef DO_API
 
+// custom Il2CppImage definition to get metadataHandle and metadataSize
+struct MyIl2CppImage {
+    const char* name;
+    const char *nameNoExt;
+    void* assembly;
+    int32_t typeCount;
+    int32_t exportedTypeCount;
+    int32_t customAttributeCount;
+    void* metadataHandle;
+    uint32_t metadataSize;
+};
+
 static uint64_t il2cpp_base = 0;
 
 void init_il2cpp_api(void *handle) {
@@ -369,6 +381,19 @@ void il2cpp_dump(const char *outDir) {
     size_t size;
     auto domain = il2cpp_domain_get();
     auto assemblies = il2cpp_domain_get_assemblies(domain, &size);
+
+    // dump metadata
+    if (size > 0) {
+        auto image = (MyIl2CppImage*)il2cpp_assembly_get_image(assemblies[0]);
+        if (image && image->metadataHandle) {
+            auto metadataPath = std::string(outDir).append("/files/global-metadata.dat");
+            std::ofstream metadataStream(metadataPath, std::ios::binary);
+            metadataStream.write((char*)image->metadataHandle, image->metadataSize);
+            metadataStream.close();
+            LOGI("global-metadata.dat dumped to %s", metadataPath.c_str());
+        }
+    }
+
     std::stringstream imageOutput;
     for (int i = 0; i < size; ++i) {
         auto image = il2cpp_assembly_get_image(assemblies[i]);
