@@ -16,6 +16,7 @@
 #include "log.h"
 #include "il2cpp-tabledefs.h"
 #include "il2cpp-class.h"
+#include <elf.h>
 
 #define DO_API(r, n, p) r (*n) p
 
@@ -345,6 +346,26 @@ void il2cpp_api_init(void *handle) {
 
 void il2cpp_dump(const char *outDir) {
     LOGI("dumping...");
+
+    // dump so
+    size_t il2cpp_size = 0;
+    auto ehdr = (ElfW(Ehdr) *)il2cpp_base;
+    auto phdr = (ElfW(Phdr) *)(il2cpp_base + ehdr->e_phoff);
+    for (int i = 0; i < ehdr->e_phnum; i++) {
+        if (phdr[i].p_type == PT_LOAD) {
+            size_t current_size = phdr[i].p_vaddr + phdr[i].p_memsz;
+            if (current_size > il2cpp_size) {
+                il2cpp_size = current_size;
+            }
+        }
+    }
+    LOGI("il2cpp_size: %zu", il2cpp_size);
+    auto soPath = std::string(outDir).append("/files/il2cpp.so");
+    std::ofstream soStream(soPath, std::ios::binary);
+    soStream.write((char *)il2cpp_base, il2cpp_size);
+    soStream.close();
+    LOGI("il2cpp.so dumped to %s", soPath.c_str());
+
     size_t size;
     auto domain = il2cpp_domain_get();
     auto assemblies = il2cpp_domain_get_assemblies(domain, &size);
